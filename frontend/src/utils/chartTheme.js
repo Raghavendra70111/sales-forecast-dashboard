@@ -4,12 +4,12 @@ export const tooltipProps = {
     backgroundColor: '#0f172a',
     border: '1px solid #334155',
     borderRadius: '10px',
-    color: '#f1f5f9',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+    color: '#1f77ce',
+    boxShadow: '0 10px 40px rgba(206, 59, 59, 0.35)',
   },
-  labelStyle: { color: '#94a3b8', fontWeight: 600, marginBottom: 4 },
+  labelStyle: { color: '#3b7ad3', fontWeight: 600, marginBottom: 4 },
   itemStyle: { color: '#e2e8f0' },
-  cursor: { stroke: '#06b6d4', strokeWidth: 1, strokeDasharray: '4 4' },
+  cursor: { stroke: '#3ccce6', strokeWidth: 1, strokeDasharray: '4 4' },
   wrapperStyle: { outline: 'none' },
 }
 

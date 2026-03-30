@@ -11,7 +11,7 @@ export default function AIAssistantPage() {
     {
       role: 'assistant',
       content:
-        'Ask anything about sales (e.g. “What were total sales in 2013?”). Answers use OpenAI with your live aggregates. Set OPENAI_API_KEY in .env next to server.py.',
+        '🤖 Ask about your data — totals, trends, categories, or forecasts.',
     },
   ])
   const [loading, setLoading] = useState(false)
@@ -19,14 +19,17 @@ export default function AIAssistantPage() {
   const send = async () => {
     const text = input.trim()
     if (!text) return
+
     setInput('')
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setLoading(true)
+
     try {
       const { data } = await axios.post(`${API_BASE}/ai-chat`, {
         message: text,
         yearFilter: yearFilter || 'all',
       })
+
       if (data.reply) {
         setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
       } else {
@@ -34,14 +37,17 @@ export default function AIAssistantPage() {
           ...prev,
           {
             role: 'assistant',
-            content: data.error || 'No reply. Set OPENAI_API_KEY and restart the Flask server.',
+            content: data.error || 'No response from AI assistant',
           },
         ])
       }
     } catch (e) {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: e.response?.data?.error || e.message || 'Request failed' },
+        {
+          role: 'assistant',
+          content: e.response?.data?.error || 'Server error. Make sure backend is running.',
+        },
       ])
     } finally {
       setLoading(false)
@@ -51,17 +57,20 @@ export default function AIAssistantPage() {
   return (
     <div className="animate-fade-in max-w-2xl space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold text-white">AI assistant</h1>
+        <h1 className="text-2xl font-semibold text-white">🤖 Smart Sales Assistant</h1>
         <p className="text-slate-400 text-sm mt-1">
-          Year filter from the navbar is sent with each question so answers match 2013 vs 2016 correctly. Backend: <code className="text-cyan-400/90">/api/ai-chat</code> +{' '}
-          <code className="text-cyan-400/90">OPENAI_API_KEY</code>.
+          Ask questions about your sales data. Year filter is applied automatically. Backend:{' '}
+          <code className="text-cyan-400/90">/api/ai-chat</code> (Free AI)
         </p>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 h-80 overflow-y-auto space-y-3 text-sm">
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'assistant' ? 'text-cyan-100' : 'text-white'}>
-            <span className="font-semibold text-slate-500">{m.role === 'assistant' ? 'Assistant' : 'You'}:</span> {m.content}
+            <span className="font-semibold text-slate-500">
+              {m.role === 'assistant' ? 'Assistant' : 'You'}:
+            </span>{' '}
+            {m.content}
           </div>
         ))}
         {loading && <div className="text-slate-500">Thinking…</div>}
@@ -72,7 +81,7 @@ export default function AIAssistantPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="e.g. What were sales in 2013?"
+          placeholder="e.g. Total sales in 2014"
           className="flex-1 rounded-xl bg-slate-900 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
         />
         <button

@@ -58,8 +58,17 @@ def _clean_payload_value(value):
 @app.route('/api/sales-trend')
 def sales_trend():
     df, col = get_df()
-    res = df.groupby('YearMonth')[col].sum().reset_index()
-    res.columns = ['YearMonth', 'Total']
+
+    res = (
+        df.groupby(['year', 'month'])[col]
+        .sum()
+        .reset_index()
+    )
+
+    res['name'] = res['year'].astype(str) + '-' + res['month'].astype(str).str.zfill(2)
+    res = res[['name', col]]
+    res.columns = ['name', 'sales']
+
     return jsonify(res.to_dict(orient='records'))
 
 
@@ -72,7 +81,11 @@ def monthly_breakdown():
         .reindex(range(1, 13), fill_value=0)
         .reset_index()
     )
-    result.columns = ['month', 'sales']
+
+    result['name'] = result['month'].apply(lambda x: MONTH_ORDER[x-1])
+    result = result[['name', col]]
+    result.columns = ['name', 'sales']
+
     return jsonify(result.to_dict(orient='records'))
 
 
@@ -292,77 +305,76 @@ def full_data():
 
 @app.route('/api/ai-chat', methods=['POST'])
 def ai_chat():
-    payload = request.get_json(silent=True) or {}
-    message = (payload.get('message') or '').strip()
-    year_filter = payload.get('yearFilter')
-    if not message:
-        return jsonify({'error': 'Empty message', 'reply': None}), 400
-
-    api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        return jsonify({
-            'error': 'Set OPENAI_API_KEY in environment or .env file next to server.py',
-            'reply': None,
-        }), 503
-
-    df, col = get_df()
-    if year_filter not in (None, '', 'all'):
-        try:
-            y = int(year_filter)
-            df = df[df['year'] == y]
-        except (TypeError, ValueError):
-            pass
-
-    yearly = df.groupby('year')[col].sum().sort_index()
-    yearly_lines = [f"{int(y)}: {float(v):,.2f}" for y, v in yearly.items()]
-
-    state_top = df.groupby('State')[col].sum().sort_values(ascending=False).head(8)
-    state_lines = [f"{s}: {float(v):,.2f}" for s, v in state_top.items()]
-
-    cat_top = df.groupby('Product Category')[col].sum().sort_values(ascending=False).head(6)
-    cat_lines = [f"{c}: {float(v):,.2f}" for c, v in cat_top.items()]
-
-    context = f"""Dataset: order-level sales (Total column).
-Filter: {'all years' if year_filter in (None, '', 'all') else f'year={year_filter}'}.
-Rows in scope: {len(df)}.
-Total sales (scope): {float(df[col].sum()):,.2f}
-Average order (scope): {float(df[col].mean()):,.2f}
-
-Sales by year (use these exact figures when the user names a year):
-{chr(10).join(yearly_lines)}
-
-Top states by Total:
-{chr(10).join(state_lines)}
-
-Top product categories:
-{chr(10).join(cat_lines)}
-"""
-
     try:
-        from openai import OpenAI
+        import re
 
-        client = OpenAI(api_key=api_key)
-        resp = client.chat.completions.create(
-            model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
-            messages=[
-                {
-                    'role': 'system',
-                    'content': (
-                        'You are a sales forecasting assistant. Answer using ONLY the numbers in the '
-                        'context. If the user asks about a specific year (e.g. 2013), quote that year’s '
-                        'total from the "Sales by year" lines. Do not invent years or swap 2013 with 2016. '
-                        'If data for a year is missing, say so. Be concise.'
-                    ),
-                },
-                {'role': 'user', 'content': f'{context}\n\nUser question: {message}'},
-            ],
-            temperature=0.2,
-        )
-        reply = resp.choices[0].message.content
-        return jsonify({'reply': reply, 'error': None})
-    except Exception as exc:
-        return jsonify({'error': str(exc), 'reply': None}), 500
+        payload = request.get_json(silent=True) or {}
+        message = (payload.get('message') or '').strip().lower()
 
+        if not message:
+            return jsonify({'error': 'Empty message', 'reply': None}), 400
 
+        df, col = get_df()
+        df['year'] = df['YearMonth'].astype(str).str[:4].astype(int)
+
+        # 🔥 normalize words
+        words = re.findall(r'\w+', message)
+
+        # 🔥 detect year
+        year_match = re.search(r'20\d{2}', message)
+        selected_year = int(year_match.group()) if year_match else None
+
+        if selected_year:
+            df = df[df['year'] == selected_year]
+
+        # 🔥 keyword groups
+        total_words = {"total", "sum", "overall", "all"}
+        avg_words = {"average", "avg", "mean"}
+        category_words = {"category", "categories"}
+        state_words = {"state", "location"}
+        product_words = {"product", "item"}
+        trend_words = {"trend", "month", "monthly"}
+
+        # 🔥 TOTAL
+        if any(w in words for w in total_words):
+            total = df[col].sum()
+            if selected_year:
+                return jsonify({'reply': f"📊 Total sales in {selected_year}: ${round(total,2):,}"})
+            return jsonify({'reply': f"📊 Total sales: ${round(total,2):,}"})
+
+        # 🔥 AVERAGE
+        if any(w in words for w in avg_words):
+            avg = df[col].mean()
+            return jsonify({'reply': f"📈 Average sales: ${round(avg,2):,}"})
+
+        # 🔥 CATEGORY
+        if any(w in words for w in category_words):
+            top = df.groupby('Product Category')[col].sum().idxmax()
+            return jsonify({'reply': f"🏆 Top category: {top}"})
+
+        # 🔥 STATE
+        if any(w in words for w in state_words):
+            top = df.groupby('State')[col].sum().idxmax()
+            return jsonify({'reply': f"🌍 Top state: {top}"})
+
+        # 🔥 PRODUCT
+        if any(w in words for w in product_words):
+            top = df.groupby('Product Name')[col].sum().idxmax()
+            return jsonify({'reply': f"📦 Top product: {top}"})
+
+        # 🔥 TREND
+        if any(w in words for w in trend_words):
+            monthly = df.groupby('YearMonth')[col].sum().sort_values(ascending=False)
+            return jsonify({'reply': f"📅 Best month: {monthly.index[0]}"})
+
+        # 🔥 fallback (smart)
+        return jsonify({
+            'reply': "🤖 I didn’t fully understand. Try: total, 2014, category, state, product, trend."
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'reply': None}), 500
+    
+    
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)

@@ -1,10 +1,21 @@
-# --- Frontend (React) ---
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# React
 node_modules/
 dist/
-build/
-.eslintcache
+
+# Env
 .env
-.env.local
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
 
 
 # Byte-compiled / optimized / DLL files
@@ -160,8 +171,6 @@ activemq-data/
 .env
 .envrc
 .venv
-.venv-1
-.venv-1/
 env/
 venv/
 ENV/
