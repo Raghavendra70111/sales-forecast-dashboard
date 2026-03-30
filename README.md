@@ -6,18 +6,53 @@ A full-stack sales analytics dashboard built using **React, Tailwind CSS, Rechar
 
 # 🚀 How to Run the Project
 
-## 🔹 1. Start Backend
+## 📁 1. Clone the Repository
 
 ```bash
-pip install -r requirements.txt
-python server.py
+git clone https://github.com/YOUR_USERNAME/sales-forecast-dashboard.git
+cd sales-forecast-dashboard
 ```
-
-👉 Runs on: http://127.0.0.1:5000
 
 ---
 
-## 🔹 2. Start Frontend
+## ⚙️ 2. Setup Backend (Python)
+
+### Create Virtual Environment
+
+```bash
+py -3.11 -m venv .venv
+```
+
+### Activate Environment
+
+```bash
+.venv\Scripts\activate
+```
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### (Optional) Upgrade pip if error occurs
+
+```bash
+python -m pip install --upgrade pip
+```
+
+### Run Backend Server
+
+```bash
+python server.py
+```
+
+👉 Backend runs at:
+http://127.0.0.1:5000
+
+---
+
+## 🔹 3. Start Frontend
 
 ```bash
 cd frontend
